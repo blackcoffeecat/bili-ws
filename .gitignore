@@ -1,0 +1,15 @@
+.idea/
+.vscode/
+.DS_Store/
+
+node_modules/
+dist/
+logs/
+
+.env
+
+*.tgz
+*.log
+*.pid
+
+package-lock.json
