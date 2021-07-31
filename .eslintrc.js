@@ -7,6 +7,7 @@ module.exports = {
   extends: [
     'airbnb-base',
     'prettier',
+    'plugin:import/typescript',
     'plugin:@typescript-eslint/recommended',
     'plugin:prettier/recommended',
   ],
@@ -15,10 +16,10 @@ module.exports = {
     ecmaVersion: 12,
     sourceType: 'module',
   },
-  plugins: [
-    '@typescript-eslint',
-  ],
+  plugins: ['@typescript-eslint'],
   rules: {
     'prettier/prettier': 'error',
+    'import/extensions': 'off',
+    'no-shadow': 'off',
   },
 };
