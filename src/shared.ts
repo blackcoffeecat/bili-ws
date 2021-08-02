@@ -23,6 +23,42 @@ export enum WS {
   WS_HEADER_DEFAULT_SEQUENCE = 1,
 }
 
+export type OP =
+  | WS.WS_OP_HEARTBEAT
+  | WS.WS_OP_HEARTBEAT_REPLY
+  | WS.WS_OP_MESSAGE
+  | WS.WS_OP_USER_AUTHENTICATION
+  | WS.WS_OP_CONNECT_SUCCESS
+  | WS.WS_HEADER_DEFAULT_OPERATION;
+
+export type VER =
+  | WS.WS_BODY_PROTOCOL_VERSION_NORMAL
+  | WS.WS_BODY_PROTOCOL_VERSION_DEFLATE
+  | WS.WS_BODY_PROTOCOL_VERSION_BROTLI
+  | WS.WS_HEADER_DEFAULT_VERSION;
+
+export type OFFSET =
+  | WS.WS_PACKAGE_OFFSET
+  | WS.WS_HEADER_OFFSET
+  | WS.WS_VERSION_OFFSET
+  | WS.WS_OPERATION_OFFSET
+  | WS.WS_SEQUENCE_OFFSET;
+
+export type Head = {
+  headerLen: number;
+  seq: number;
+  ver: VER;
+  op: OP;
+};
+
+type HeadConf<K extends keyof Head> = {
+  name: string;
+  key: K;
+  bytes: 2 | 4;
+  offset: OFFSET;
+  value: Head[K];
+};
+
 const headList = [
   {
     name: 'Header Length',
@@ -30,46 +66,50 @@ const headList = [
     bytes: 2,
     offset: WS.WS_HEADER_OFFSET,
     value: WS.WS_PACKAGE_HEADER_TOTAL_LENGTH,
-  },
+  } as HeadConf<'headerLen'>,
   {
     name: 'Protocol Version',
     key: 'ver',
     bytes: 2,
     offset: WS.WS_VERSION_OFFSET,
     value: WS.WS_HEADER_DEFAULT_VERSION,
-  },
+  } as HeadConf<'ver'>,
   {
     name: 'Operation',
     key: 'op',
     bytes: 4,
     offset: WS.WS_OPERATION_OFFSET,
     value: WS.WS_HEADER_DEFAULT_OPERATION,
-  },
+  } as HeadConf<'op'>,
   {
     name: 'Sequence Id',
     key: 'seq',
     bytes: 4,
     offset: WS.WS_SEQUENCE_OFFSET,
     value: WS.WS_HEADER_DEFAULT_SEQUENCE,
-  },
+  } as HeadConf<'seq'>,
 ];
 
-export type Head = Record<string, WS>;
 export type Body = any[];
 
 export function convertToObject(buffer: ArrayBufferLike): [Head, Body] {
   const dv = new DataView(toArrayBuffer(buffer));
   const { byteLength } = buffer;
   const decoder = getDecoder();
-  const head: Head = {};
+  const head: Head = {
+    headerLen: 0,
+    seq: 0,
+    ver: WS.WS_HEADER_DEFAULT_VERSION,
+    op: WS.WS_HEADER_DEFAULT_OPERATION,
+  };
   const data: Body = [];
 
   headList.forEach(data => {
     const { key, offset, bytes } = data;
-    let value;
+    let { value } = data;
     if (bytes === 4) value = dv.getInt32(offset);
     if (bytes === 2) value = dv.getInt16(offset);
-    head[key] = value as WS;
+    head[key] = value;
   });
 
   if (head.op === WS.WS_OP_HEARTBEAT_REPLY) {
@@ -111,7 +151,7 @@ function mergeArrayBuffer(a: ArrayBufferLike, b: ArrayBufferLike): ArrayBuffer {
 
 export function convertToArrayBuffer(
   str: string,
-  op: WS = WS.WS_HEADER_DEFAULT_OPERATION
+  op: OP = WS.WS_HEADER_DEFAULT_OPERATION
 ): ArrayBuffer {
   const encoder = getEncoder();
   const head = new ArrayBuffer(16);
@@ -129,7 +169,7 @@ export function convertToArrayBuffer(
   return mergeArrayBuffer(head, body);
 }
 
-let heartbeatPack: ArrayBufferLike;
+let heartbeatPack: ArrayBuffer;
 
 export function getHeartbeatPack(): ArrayBuffer {
   if (!heartbeatPack) {
