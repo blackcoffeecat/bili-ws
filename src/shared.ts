@@ -1,4 +1,5 @@
 import { decompress } from 'brotli';
+import nextTick from 'next-tick';
 import { inflate } from 'pako';
 import { getDecoder, getEncoder, toArrayBuffer } from './encoding';
 
@@ -53,7 +54,7 @@ const headList = [
   },
 ];
 
-export type Head = Record<string, any>;
+export type Head = Record<string, WS>;
 export type Body = any[];
 
 export function convertToObject(buffer: ArrayBufferLike): [Head, Body] {
@@ -68,8 +69,13 @@ export function convertToObject(buffer: ArrayBufferLike): [Head, Body] {
     let value;
     if (bytes === 4) value = dv.getInt32(offset);
     if (bytes === 2) value = dv.getInt16(offset);
-    head[key] = value;
+    head[key] = value as WS;
   });
+
+  if (head.op === WS.WS_OP_HEARTBEAT_REPLY) {
+    data.push({ cmd: 'HEARTBEAT', online: dv.getInt32(WS.WS_PACKAGE_HEADER_TOTAL_LENGTH) });
+    return [head, data];
+  }
 
   for (let packetLength, offset = 0; offset < byteLength; offset += packetLength) {
     packetLength = dv.getUint32(offset);
@@ -84,14 +90,8 @@ export function convertToObject(buffer: ArrayBufferLike): [Head, Body] {
         [, newData] = convertToObject(decompress(buf as Buffer).buffer);
         break;
 
-      case WS.WS_BODY_PROTOCOL_VERSION_NORMAL:
-        newData = [JSON.parse(decoder.decode(buf))];
-        break;
-
       default:
-        newData = [
-          { cmd: 'HEARTBEAT', data: { online: new DataView(toArrayBuffer(buf)).getInt32(0) } },
-        ];
+        newData = [JSON.parse(decoder.decode(buf))];
     }
 
     data.push(...newData);
@@ -100,7 +100,7 @@ export function convertToObject(buffer: ArrayBufferLike): [Head, Body] {
   return [head, data];
 }
 
-function mergeArrayBuffer(a: ArrayBufferLike, b: ArrayBufferLike): ArrayBufferLike {
+function mergeArrayBuffer(a: ArrayBufferLike, b: ArrayBufferLike): ArrayBuffer {
   const head = new Uint8Array(a);
   const body = new Uint8Array(b);
   const all = new Uint8Array(head.byteLength + body.byteLength);
@@ -109,7 +109,10 @@ function mergeArrayBuffer(a: ArrayBufferLike, b: ArrayBufferLike): ArrayBufferLi
   return all.buffer;
 }
 
-export function convertToArrayBuffer(str: string, op: WS = WS.WS_HEADER_DEFAULT_OPERATION) {
+export function convertToArrayBuffer(
+  str: string,
+  op: WS = WS.WS_HEADER_DEFAULT_OPERATION
+): ArrayBuffer {
   const encoder = getEncoder();
   const head = new ArrayBuffer(16);
   const headDv = new DataView(head, 0);
@@ -128,9 +131,44 @@ export function convertToArrayBuffer(str: string, op: WS = WS.WS_HEADER_DEFAULT_
 
 let heartbeatPack: ArrayBufferLike;
 
-export function getHeartbeatPack() {
+export function getHeartbeatPack(): ArrayBuffer {
   if (!heartbeatPack) {
     heartbeatPack = convertToArrayBuffer(`[object Object]`, WS.WS_OP_HEARTBEAT);
   }
   return heartbeatPack;
+}
+
+export class Timer {
+  constructor(readonly fn: () => void, readonly interval: number) {
+    this.fn = fn;
+    this.interval = interval;
+
+    this.start();
+  }
+
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  private runner = () => {
+    this.timer = setTimeout(this.runner, this.getTimeout());
+    nextTick(this.fn);
+  };
+
+  private getTimeout() {
+    return this.interval - ((Date.now() % 60e3) % this.interval);
+  }
+
+  public start(): void {
+    if (!this.timer) this.timer = setTimeout(this.runner, this.getTimeout());
+  }
+
+  public stop(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+}
+
+export function createTimer(fn: () => void, interval: number): Timer {
+  return new Timer(fn, interval);
 }

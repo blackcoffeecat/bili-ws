@@ -3,7 +3,7 @@ import BaseSocket from '../BaseSocket';
 class BiliWS extends BaseSocket {
   private ws: WebSocket | null = null;
 
-  connect() {
+  connect(): void {
     this.close();
 
     const { host, wss_port: port } = this.host;
@@ -15,8 +15,8 @@ class BiliWS extends BaseSocket {
     this.createConn((onOpen, onClose, handleMessage) => {
       ws.onopen = onOpen;
       ws.onclose = onClose;
-      const onMessage = handleMessage((cmd, data) => {
-        this.emit(cmd, data);
+      const onMessage = handleMessage((head, data) => {
+        this.emit(data.cmd || head.op, data);
       });
       ws.onmessage = event => {
         onMessage(event.data);
@@ -24,11 +24,11 @@ class BiliWS extends BaseSocket {
     });
   }
 
-  send(data: ArrayBufferLike) {
+  send(data: ArrayBufferLike): void {
     this.ws?.send(data);
   }
 
-  close() {
+  close(): void {
     if (this.ws) {
       this.ws.close();
       this.ws = null;

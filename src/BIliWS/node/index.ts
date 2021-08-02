@@ -5,7 +5,7 @@ import { toBuffer } from '../../encoding';
 class BiliWS extends BaseSocket {
   private socket: net.Socket | null = null;
 
-  connect() {
+  connect(): void {
     this.close();
 
     const { host, port } = this.host;
@@ -13,9 +13,8 @@ class BiliWS extends BaseSocket {
     this.socket = socket;
 
     this.createConn((onOpen, onClose, handleMessage) => {
-      const onMessage = handleMessage((cmd, data) => {
-        this.emit('msg', cmd, data);
-        this.emit(cmd, data);
+      const onMessage = handleMessage((head, data) => {
+        this.emit(data.cmd || head.op, data);
       });
 
       socket.on('ready', onOpen);
@@ -34,11 +33,11 @@ class BiliWS extends BaseSocket {
     });
   }
 
-  send(data: ArrayBufferLike) {
+  send(data: ArrayBufferLike): void {
     this.socket?.write(toBuffer(data));
   }
 
-  close() {
+  close(): void {
     if (this.socket) {
       this.socket.destroy();
       this.socket = null;
