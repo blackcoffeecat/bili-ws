@@ -5,6 +5,7 @@ import {
   createTimer,
   getHeartbeatPack,
   Head,
+  VER,
   WS,
 } from './shared';
 
@@ -90,6 +91,8 @@ abstract class BaseSocket extends EventEmitter {
     });
   }
 
+  ver: VER = WS.WS_BODY_PROTOCOL_VERSION_BROTLI;
+
   bufferOnly = false;
 
   online = -1;
@@ -100,7 +103,7 @@ abstract class BaseSocket extends EventEmitter {
       const hi: Record<string, number | string> = {
         roomid: this.roomId,
         platform: 'web',
-        protover: 3,
+        protover: this.ver,
         uid: 0,
         type: 2,
       };
