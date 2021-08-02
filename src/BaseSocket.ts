@@ -1,8 +1,15 @@
 import { EventEmitter } from 'events';
-import { convertToArrayBuffer, convertToObject, getHeartbeatPack, WS } from './shared';
+import {
+  convertToArrayBuffer,
+  convertToObject,
+  createTimer,
+  getHeartbeatPack,
+  Head,
+  WS,
+} from './shared';
 
 export type sendFn = (b: ArrayBufferLike) => void;
-export type onMsgFn = (cmd: string, data: any) => void;
+export type onMsgFn = (head: Head, data: any) => void;
 export type onMessageFn = (data: ArrayBufferLike) => void;
 export type handleMessageFn = (onMsg: onMsgFn) => onMessageFn;
 export type createCallbacks = (
@@ -32,6 +39,9 @@ const defaultHost = {
 const heartbeat = {
   set: new Set<sendFn>(),
   timer: null,
+  get size() {
+    return this.set.size;
+  },
   add(send: sendFn) {
     this.set.add(send);
     send(getHeartbeatPack());
@@ -41,21 +51,26 @@ const heartbeat = {
     this.set.delete(send);
   },
   run() {
-    if (this.timer) return;
-    this.timer = setInterval(() => {
-      if (!this.set.size) {
-        clearInterval(this.timer);
-        this.timer = null;
-      }
+    if (!this.timer) {
+      this.timer = createTimer(() => {
+        if (!this.size) {
+          this.timer.stop();
+          return;
+        }
+        this.send();
+      }, 30e3);
+    }
 
-      const itr = this.set.values();
-      let next = itr.next();
-      const hbp = getHeartbeatPack();
-      while (!next.done) {
-        next.value(hbp);
-        next = itr.next();
-      }
-    }, 30e3);
+    this.timer.start();
+  },
+  send() {
+    const itr = this.set.values();
+    let next = itr.next();
+    const hbp = getHeartbeatPack();
+    while (!next.done) {
+      next.value(hbp);
+      next = itr.next();
+    }
   },
 };
 
@@ -75,7 +90,11 @@ abstract class BaseSocket extends EventEmitter {
     });
   }
 
-  createConn(create: createCallbacks) {
+  bufferOnly = false;
+
+  online = -1;
+
+  createConn(create: createCallbacks): void {
     const send = this.send.bind(this);
     const onOpen = () => {
       const hi: Record<string, number | string> = {
@@ -89,16 +108,26 @@ abstract class BaseSocket extends EventEmitter {
 
       this.send(convertToArrayBuffer(JSON.stringify(hi), WS.WS_OP_USER_AUTHENTICATION));
       heartbeat.add(send);
+      this.emit('open');
     };
     const onClose = () => {
       heartbeat.remove(send);
+      this.emit('close');
+      this.online = -1;
     };
+
     const handleMessage: handleMessageFn = onMsg => data => {
-      const [, body] = convertToObject(data);
-      body.forEach(msg => {
-        onMsg(msg.cmd, msg.data);
-        onMsg('msg', msg);
-      });
+      this.emit('buffer', data);
+      if (!this.bufferOnly) {
+        const [head, body] = convertToObject(data);
+        body.forEach(msg => {
+          onMsg(head, msg);
+          this.emit('msg', msg, head);
+          if (msg.cmd === 'HEARTBEAT') {
+            this.online = msg.online;
+          }
+        });
+      }
     };
     create(onOpen, onClose, handleMessage);
   }
