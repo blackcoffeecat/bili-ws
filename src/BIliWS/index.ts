@@ -12,6 +12,10 @@ class BiliWS extends BaseSocket {
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
 
+    ws.onerror = () => {
+      if (ws === this.ws) this.close();
+    };
+
     this.createConn((onOpen, onClose, handleMessage) => {
       ws.onopen = onOpen;
       ws.onclose = onClose;
