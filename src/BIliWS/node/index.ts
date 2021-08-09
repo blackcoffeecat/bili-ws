@@ -12,6 +12,13 @@ class BiliWS extends BaseSocket {
     const socket = net.connect(port, host);
     this.socket = socket;
 
+    socket.on('error', () => {
+      if (socket === this.socket) this.close();
+    });
+    socket.on('timeout', () => {
+      if (socket === this.socket) this.close();
+    });
+
     this.createConn((onOpen, onClose, handleMessage) => {
       const onMessage = handleMessage((head, data) => {
         this.emit(data.cmd || head.op, data);
