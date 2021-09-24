@@ -39,7 +39,7 @@
     "eslint-plugin-prettier": "3.4.0",
     "husky": "7.0.1",
     "lint-staged": "11.1.2",
-    "prettier": "2.3.2",
+    "prettier": "2.4.1",
     "replace-json-property": "1.6.3",
     "semantic-release": "17.4.5",
     "typescript": "4.3.5"
