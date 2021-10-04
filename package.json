@@ -38,7 +38,7 @@
     "eslint-plugin-import": "2.24.2",
     "eslint-plugin-prettier": "3.4.1",
     "husky": "7.0.1",
-    "lint-staged": "11.1.2",
+    "lint-staged": "11.2.0",
     "prettier": "2.3.2",
     "replace-json-property": "1.6.3",
     "semantic-release": "17.4.5",
