@@ -4525,10 +4525,10 @@ repeat-string@^1.6.1:
   resolved "https://registry.yarnpkg.com/repeat-string/-/repeat-string-1.6.1.tgz#8dcae470e1c88abc2d600fff4a776286da75e637"
   integrity sha1-jcrkcOHIirwtYA//Sndihtp15jc=
 
-replace-json-property@1.6.3:
-  version "1.6.3"
-  resolved "https://registry.yarnpkg.com/replace-json-property/-/replace-json-property-1.6.3.tgz#8bac0d4ea1695ef8571e76b87c5609a2c32d8b35"
-  integrity sha512-i4p43kXJaZyP6UUzsNKahpwo0eQRqxcpOm1GMaTAyJUyfh44T7xRO1IUt/p45PYmnl7CjD36ME6OY45vGaQHAw==
+replace-json-property@1.8.0:
+  version "1.8.0"
+  resolved "https://registry.yarnpkg.com/replace-json-property/-/replace-json-property-1.8.0.tgz#5e0c957aff766ece67c50783b2fde18098cfa371"
+  integrity sha512-x0TN9mR0Q6b9THtl9tKJj+MGokgC4OMSacgZx2BrX6nce2FufNiu+j8QG05eN0GXDBqlrFs+0OnxOGzWEnSrSA==
   dependencies:
     chalk "^4.1.0"
     commander "^2.19.0"
