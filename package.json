@@ -33,7 +33,7 @@
     "cpy": "8.1.2",
     "cpy-cli": "3.1.1",
     "eslint": "7.32.0",
-    "eslint-config-airbnb-base": "14.2.1",
+    "eslint-config-airbnb-base": "15.0.0",
     "eslint-config-prettier": "8.3.0",
     "eslint-plugin-import": "2.24.2",
     "eslint-plugin-prettier": "3.4.1",
