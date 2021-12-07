@@ -1,5 +1,4 @@
 import { decompress } from 'brotli';
-import nextTick from 'next-tick';
 import { inflate } from 'pako';
 import { getDecoder, getEncoder, toArrayBuffer } from './encoding';
 
@@ -178,37 +177,16 @@ export function getHeartbeatPack(): ArrayBuffer {
   return heartbeatPack;
 }
 
-export class Timer {
-  constructor(readonly fn: () => void, readonly interval: number) {
-    this.fn = fn;
-    this.interval = interval;
+export function chunkReader(onChunk: (b: ArrayBufferLike) => void): (b: ArrayBufferLike) => void {
+  let buffer = Buffer.alloc(0);
+  return function eachChunk(newBuffer) {
+    buffer = Buffer.concat([buffer, newBuffer as Buffer]);
+    while (buffer.length >= 4 && buffer.readInt32BE(0) <= buffer.length) {
+      const size = buffer.readInt32BE(0);
+      const pack = buffer.slice(0, size);
+      buffer = buffer.slice(size);
 
-    this.start();
-  }
-
-  private timer: ReturnType<typeof setTimeout> | null = null;
-
-  private runner = () => {
-    this.timer = setTimeout(this.runner, this.getTimeout());
-    nextTick(this.fn);
-  };
-
-  private getTimeout() {
-    return this.interval - ((Date.now() % 60e3) % this.interval);
-  }
-
-  public start(): void {
-    if (!this.timer) this.timer = setTimeout(this.runner, this.getTimeout());
-  }
-
-  public stop(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
+      onChunk(pack);
     }
-  }
-}
-
-export function createTimer(fn: () => void, interval: number): Timer {
-  return new Timer(fn, interval);
+  };
 }

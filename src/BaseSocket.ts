@@ -1,13 +1,5 @@
 import { EventEmitter } from 'events';
-import {
-  convertToArrayBuffer,
-  convertToObject,
-  createTimer,
-  getHeartbeatPack,
-  Head,
-  VER,
-  WS,
-} from './shared';
+import { convertToArrayBuffer, convertToObject, getHeartbeatPack, Head, VER, WS } from './shared';
 
 export type sendFn = (b: ArrayBufferLike) => void;
 export type onMsgFn = (head: Head, data: any) => void;
@@ -21,11 +13,11 @@ export type createCallbacks = (
 
 export type Host = {
   host: string;
-  port: number;
+  port?: number;
   // eslint-disable-next-line camelcase
-  ws_port: number;
+  ws_port?: number;
   // eslint-disable-next-line camelcase
-  wss_port: number;
+  wss_port?: number;
 };
 
 // https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?id=<ROOM_ID>&type=0
@@ -37,43 +29,38 @@ const defaultHost = {
   wss_port: 443,
 };
 
-const heartbeat = {
-  set: new Set<sendFn>(),
-  timer: null,
-  get size() {
-    return this.set.size;
-  },
-  add(send: sendFn) {
-    this.set.add(send);
-    send(getHeartbeatPack());
-    this.run();
-  },
-  remove(send: sendFn) {
-    this.set.delete(send);
-  },
-  run() {
-    if (!this.timer) {
-      this.timer = createTimer(() => {
-        if (!this.size) {
-          this.timer.stop();
-          return;
-        }
-        this.send();
-      }, 30e3);
-    }
+let timerInterval = 60e3;
+const fnSet = new Set<sendFn>();
+let timer: ReturnType<typeof setTimeout> | null = null;
 
-    this.timer.start();
-  },
-  send() {
-    const itr = this.set.values();
-    let next = itr.next();
-    const hbp = getHeartbeatPack();
-    while (!next.done) {
-      next.value(hbp);
-      next = itr.next();
+function addHb(send: sendFn) {
+  fnSet.add(send);
+  send(getHeartbeatPack());
+  // eslint-disable-next-line no-use-before-define
+  startHb();
+}
+
+function rmHb(send: sendFn) {
+  fnSet.delete(send);
+}
+
+function hbFn() {
+  if (timer) timer = null;
+  if (!fnSet.size) return;
+  timer = setTimeout(hbFn, timerInterval);
+  const hbp = getHeartbeatPack();
+  fnSet.forEach(send => {
+    try {
+      send(hbp);
+    } catch {
+      //
     }
-  },
-};
+  });
+}
+
+function startHb() {
+  if (!timer) timer = setTimeout(hbFn, timerInterval);
+}
 
 abstract class BaseSocket extends EventEmitter {
   protected constructor(
@@ -91,14 +78,26 @@ abstract class BaseSocket extends EventEmitter {
     });
   }
 
+  public static setHeartbeatInterval(interval: number) {
+    timerInterval = interval;
+  }
+
   ver: VER = WS.WS_BODY_PROTOCOL_VERSION_BROTLI;
 
   bufferOnly = false;
 
+  hasData = false;
+
   online = -1;
 
   createConn(create: createCallbacks): void {
-    const send = this.send.bind(this);
+    const send = (hbp: ArrayBufferLike) => {
+      if (!this.hasData) {
+        this.close();
+        return;
+      }
+      this.send(hbp);
+    };
     const onOpen = () => {
       const hi: Record<string, number | string> = {
         roomid: this.roomId,
@@ -110,17 +109,21 @@ abstract class BaseSocket extends EventEmitter {
       if (this.token) hi.key = this.token;
 
       this.send(convertToArrayBuffer(JSON.stringify(hi), WS.WS_OP_USER_AUTHENTICATION));
-      heartbeat.add(send);
+      this.once('buffer', () => {
+        addHb(send);
+      });
       this.emit('open');
     };
     const onClose = () => {
-      heartbeat.remove(send);
+      rmHb(send);
       this.emit('close');
       this.online = -1;
     };
 
     const handleMessage: handleMessageFn = onMsg => data => {
+      this.hasData = true;
       this.emit('buffer', data);
+
       if (!this.bufferOnly) {
         const [head, body] = convertToObject(data);
         body.forEach(msg => {

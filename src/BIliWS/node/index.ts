@@ -1,6 +1,7 @@
 import * as net from 'net';
 import BaseSocket from '../../BaseSocket';
 import { toBuffer } from '../../encoding';
+import { chunkReader } from '../../shared';
 
 class BiliWS extends BaseSocket {
   private socket: net.Socket | null = null;
@@ -9,7 +10,7 @@ class BiliWS extends BaseSocket {
     this.close();
 
     const { host, port } = this.host;
-    const socket = net.connect(port, host);
+    const socket = net.connect(port ?? 2243, host);
     this.socket = socket;
 
     socket.on('error', () => {
@@ -23,20 +24,10 @@ class BiliWS extends BaseSocket {
       const onMessage = handleMessage((head, data) => {
         this.emit(data.cmd || head.op, data);
       });
-
+      const eachChunk = chunkReader(onMessage);
       socket.on('ready', onOpen);
       socket.on('close', onClose);
-      let buffer = Buffer.alloc(0);
-      socket.on('data', newBuffer => {
-        buffer = Buffer.concat([buffer, newBuffer]);
-        while (buffer.length >= 4 && buffer.readInt32BE(0) <= buffer.length) {
-          const size = buffer.readInt32BE(0);
-          const pack = buffer.slice(0, size);
-          buffer = buffer.slice(size);
-
-          onMessage(pack);
-        }
-      });
+      socket.on('data', eachChunk);
     });
   }
 
