@@ -8,7 +8,7 @@ class BiliWS extends BaseSocket {
 
     const { host, wss_port: port } = this.host;
 
-    const ws = new WebSocket(`wss://${host}:${port}/sub`);
+    const ws = new WebSocket(`wss://${host}:${port ?? 443}/sub`);
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
 
