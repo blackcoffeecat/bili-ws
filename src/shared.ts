@@ -190,3 +190,39 @@ export function chunkReader(onChunk: (b: ArrayBufferLike) => void): (b: ArrayBuf
     }
   };
 }
+
+export class Timer {
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(readonly fn: () => void, private interval: number) {
+    this.fn = fn;
+    this.interval = interval;
+  }
+
+  private runner() {
+    const i = this.interval;
+    this.timer = setTimeout(() => {
+      this.runner();
+      setTimeout(this.fn);
+    }, (t => i - (t % i))(Date.now() + 1));
+  }
+
+  setInterval(interval: number) {
+    this.interval = interval;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.runner();
+    }
+  }
+
+  start() {
+    if (!this.timer) this.runner();
+  }
+
+  stop() {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+}
