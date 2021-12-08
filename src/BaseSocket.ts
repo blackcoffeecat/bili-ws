@@ -1,5 +1,13 @@
 import { EventEmitter } from 'events';
-import { convertToArrayBuffer, convertToObject, getHeartbeatPack, Head, VER, WS } from './shared';
+import {
+  convertToArrayBuffer,
+  convertToObject,
+  getHeartbeatPack,
+  Head,
+  Timer,
+  VER,
+  WS,
+} from './shared';
 
 export type sendFn = (b: ArrayBufferLike) => void;
 export type onMsgFn = (head: Head, data: any) => void;
@@ -29,37 +37,27 @@ const defaultHost = {
   wss_port: 443,
 };
 
-let timerInterval = 60e3;
-const fnSet = new Set<sendFn>();
-let timer: ReturnType<typeof setTimeout> | null = null;
-
-function addHb(send: sendFn) {
-  fnSet.add(send);
-  send(getHeartbeatPack());
-  // eslint-disable-next-line no-use-before-define
-  startHb();
-}
-
-function rmHb(send: sendFn) {
-  fnSet.delete(send);
-}
-
-function hbFn() {
-  if (timer) timer = null;
-  if (!fnSet.size) return;
-  timer = setTimeout(hbFn, timerInterval);
+const fns = new Set<sendFn>();
+const timer = new Timer(() => {
+  if (!fns.size) timer.stop();
   const hbp = getHeartbeatPack();
-  fnSet.forEach(send => {
+  fns.forEach(send => {
     try {
       send(hbp);
     } catch {
       //
     }
   });
+}, 60e3);
+
+function addHb(send: sendFn) {
+  fns.add(send);
+  send(getHeartbeatPack());
+  timer.start();
 }
 
-function startHb() {
-  if (!timer) timer = setTimeout(hbFn, timerInterval);
+function rmHb(send: sendFn) {
+  fns.delete(send);
 }
 
 abstract class BaseSocket extends EventEmitter {
@@ -79,7 +77,7 @@ abstract class BaseSocket extends EventEmitter {
   }
 
   public static setHeartbeatInterval(interval: number) {
-    timerInterval = interval;
+    timer.setInterval(interval);
   }
 
   ver: VER = WS.WS_BODY_PROTOCOL_VERSION_BROTLI;
