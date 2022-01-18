@@ -41,7 +41,7 @@
     "lint-staged": "12.1.2",
     "prettier": "2.5.1",
     "replace-json-property": "1.8.0",
-    "semantic-release": "18.0.1",
+    "semantic-release": "19.0.2",
     "typescript": "4.5.2"
   },
   "dependencies": {
