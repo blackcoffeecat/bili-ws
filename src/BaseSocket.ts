@@ -86,6 +86,8 @@ abstract class BaseSocket extends EventEmitter {
 
   hasData = false;
 
+  heartbeat = true;
+
   online = -1;
 
   createConn(create: createCallbacks): void {
@@ -107,9 +109,11 @@ abstract class BaseSocket extends EventEmitter {
       if (this.token) hi.key = this.token;
 
       this.send(convertToArrayBuffer(JSON.stringify(hi), WS.WS_OP_USER_AUTHENTICATION));
-      this.once('buffer', () => {
-        addHb(send);
-      });
+      if (this.heartbeat) {
+        this.once('buffer', () => {
+          addHb(send);
+        });
+      }
       this.emit('open');
     };
     const onClose = () => {
