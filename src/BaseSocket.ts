@@ -90,6 +90,10 @@ abstract class BaseSocket extends EventEmitter {
 
   online = -1;
 
+  sendHeartbeat() {
+    this.send(getHeartbeatPack());
+  }
+
   createConn(create: createCallbacks): void {
     const send = (hbp: ArrayBufferLike) => {
       if (!this.hasData) {
